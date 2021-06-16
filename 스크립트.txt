@@ -1,0 +1,81 @@
+1.주키퍼/카프카 수행 및 구동확인
+C:\kafka_2.12-2.7.0\bin\windows\zookeeper-server-start.bat C:\kafka_2.12-2.7.0\config\zookeeper.properties  
+C:\kafka_2.12-2.7.0\bin\windows\kafka-server-start.bat C:\kafka_2.12-2.7.0\config\server.properties             
+netstat -ano | findstr "2181"
+netstat -ano | findstr "9092"
+
+2.MSA concert , booking 수행/확인
+mvn spring-boot:run
+partitions assined 
+
+3.컨슈머수행
+C:\kafka_2.12-2.7.0\bin\windows\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic ticket --from-beginning
+
+4.MSA 호출
+http http://localhost:8081
+http POST http://localhost:8081/concerts ccName="mong" ccDate="20210616" stock=10
+http http://localhost:8081/concerts/1
+
+5.컨슈머에 메세지 출력확인
+C:\Users\kyk>C:\kafka_2.12-2.7.0\bin\windows\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic ticket --from-beginning
+{"eventType":"Registered","timestamp":"20210616231823","ccId":1,"ccName":"mong","ccDate":"20210616","stock":10}
+
+
+6.pub/sub 구동테스트
+http http://localhost:8082
+http POST http://localhost:8082/bookings ccId=1 ccName="mong" ccDate="20210616" qty=2 customerId=6007 bookingStatus="success"
+http http://localhost:8081/concerts/1 // REQ/RES막아서 호출안함
+http PATCH http://localhost:8082/bookings/1 qty=1 bookingStatus="cancle"
+http http://localhost:8082/bookings/1 
+
+7.컨슈머 메세지 출력확인
+{"eventType":"Registered","timestamp":"20210616232853","ccId":1,"ccName":"mong","ccDate":"20210616","stock":10}
+{"eventType":"Booked","timestamp":"20210616232906","bookingId":1,"ccId":1,"ccName":"mong","qty":2,"customerId":6007,"bookingStatus":"success"}
+{"eventType":"BookingCancelled","timestamp":"20210616232915","bookingId":1,"ccId":1,"ccName":"mong","qty":1,"customerId":6007,"bookingStatus":"cancle"}
+{"eventType":"StockModified","timestamp":"20210616232915","ccId":1,"ccName":"mong","ccDate":"20210616","stock":9}
+->PUB/SUB
+
+8.REQ/RES 구동테스트
+
+{"eventType":"Registered","timestamp":"20210617002443","ccId":1,"ccName":"mong","ccDate":"20210616","stock":10}
+{"eventType":"StockModified","timestamp":"20210617002452","ccId":1,"ccName":"mong","ccDate":"20210616","stock":8}
+{"eventType":"Booked","timestamp":"20210617002452","bookingId":1,"ccId":1,"ccName":"mong","qty":2,"customerId":6007,"bookingStatus":"success"}
+
+===========================================
+★PUB
+1.ConcertApplication.java
+-> @EnableBinding(KafkaProcessor.class)
+2.Concert.java
+    @PostPersist
+    public void onPostPersist(){
+        Registered registered = new Registered();
+        BeanUtils.copyProperties(this, registered);
+        registered.publishAfterCommit();
+    }
+3.Registered 
+-> public class Registered extends AbstractEvent {}
+-> AbstractEvent.java 
+KafkaProcessor processor = ConcertApplication.applicationContext.getBean(KafkaProcessor.class);
+MessageChannel outputChannel = processor.outboundTopic();
+
+★SUB
+Concert
+PolicyHandler.java
+@StreamListener(KafkaProcessor.INPUT)
+    public void wheneverBookingCancelled_ModifyStock(@Payload BookingCancelled bookingCancelled){
+         
+    }
+
+===========================================
+
+★REQ
+BookingApplication.java
+->@EnableFeignClients
+ConcertService.java
+->@FeignClient(name="concert", url="http://localhost:8081")
+★RES
+ConcertController.java
+->@RequestMapping(value = "/concerts/checkAndBookStock",
+                method = RequestMethod.GET,
+                produces = "application/json;charset=UTF-8")
+
