@@ -1,3 +1,70 @@
+git init
+git add .  
+git commit -m 'CIRCUIT '
+git remote add origin https://github.com/skteam4/final.git
+git push origin master
+git clone https://github.com/mong83/concertbooking.git
+
+-----------------------------------------------------------------------------------------
+★ 강사님 TIP ) expose or 별도 하나 만들어서 호출하는 방식
+-----------------------------------------------------------------------------------------
+1~3 : Saga , CQRS , Correlation 기능 구현
+MSA간에 event driven하게 통신하는게 있으면 됨
+CQRS 는 
+예)Mypage 적용하면 3가지 모두 적용됨
+4.REQ/REQ
+예)Spring FeignClient
+5.Gateway
+6.Deploy or Pipeline 
+예)  yaml 파일이용  / Code Build 하는 방법 중 1개
+7.Circuit Breaker : 히스트릭스 , Istio 중 1개 예제로 적용
+예)Spring FeignClient + Hystrix 옵션
+8.Autoscale (HPA)
+참고) 메트릭서버를 설치해야 autoscale이 작동함
+9.Zero-downtime 
+V1, V2로 이미지 준비하여 배포테스트
+seige로 1명,1분이상으로 부하 주면(가늘고 길게)서 V2 배포
+500에러가 없는걸 보면서 확인됨
+10.Config Map / Persistence Volume
+- 등록 및 생성만 하면 안되고 MSA에서 사용하는걸 확인해줘야 함
+11.Polyglot (다형성)
+12.Self-healing(Liveness Probe)
+- 소스상에 일부로 URL or 포트를 다르게 해서 Restart 되는것 캡처해주면 됨
+-----------------------------------------------------------------------------------------
+★aws configure 셋팅 : AWS (IAM>사용자>access key생성)★
+$>aws configure
+$>AWS Access Key ID [None]: 
+$>AWS Secret Access Key [None]: 
+$>Default region name [None]: ap-northeast-2
+$>Default output format [None]: json
+
+10.EKS (Elastic Kubernetes Service) 생성 (15분)
+$> eksctl create cluster --name (mycluster-06007) --version 1.17 --spot --managed --nodegroup-name standard-workers --node-type t3.medium --nodes 4 --nodes-min 1 --nodes-max 4 
+
+★클러스터 접속위한 Kubernetes 토큰설정★
+$> aws eks --region ca-central-1 update-kubeconfig --name skteam4
+$> kubectl get all // 클러스터 정보 조회
+
+12. AWS ECR 에 Image Repository 생성 
+: AWS (ECR > Repositories 선택 > 리포지토리 생성)
+-------------------------------------------------------------------------------------------------------------------------
+13. AWS ECR Login 설정
+$> aws --region (eu-west-1) ecr get-login-password // key생성
+$> docker login --username AWS -p (아주긴도커패스워드 [AWS유저아이디-숫자로만된].dkr.eu-west-1.amazonaws.com)
+
+
+
+
+where에 해당하는게 Correlation 
+
+[Booking] aggregate와  BookingCancelled에 bookingSatus 추가 필요
+1회_2021 : p153 Ingress-service-deployment
+
+체크포인트
+Core, Supporting, General Domain (supportting 예: 고객센터)
+지속적 개선 (마케팅팀 추가, p154)
+
+
 1.주키퍼/카프카 수행 및 구동확인
 C:\kafka_2.12-2.7.0\bin\windows\zookeeper-server-start.bat C:\kafka_2.12-2.7.0\config\zookeeper.properties  
 C:\kafka_2.12-2.7.0\bin\windows\kafka-server-start.bat C:\kafka_2.12-2.7.0\config\server.properties             
@@ -9,11 +76,13 @@ mvn spring-boot:run
 partitions assined 
 
 3.컨슈머수행
-C:\kafka_2.12-2.7.0\bin\windows\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic ticket --from-beginning
+C:\kafka_2.12-2.7.0\bin\windows\kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic concertbooking --from-beginning
+[참고] topic 명 : application.yml > destination 에 정의
 
 4.MSA 호출
 http http://localhost:8081
-http POST http://localhost:8081/concerts ccName="mong" ccDate="20210616" stock=10
+http POST http://localhost:8081/concerts ccName="mong" ccDate="20210621" stock=70
+http POST http://10.100.0.1:8081/concerts ccName="mong" ccDate="20210621" stock=70 
 http http://localhost:8081/concerts/1
 
 5.컨슈머에 메세지 출력확인
@@ -23,7 +92,8 @@ C:\Users\kyk>C:\kafka_2.12-2.7.0\bin\windows\kafka-console-consumer.bat --bootst
 
 6.pub/sub 구동테스트
 http http://localhost:8082
-http POST http://localhost:8082/bookings ccId=1 ccName="mong" ccDate="20210616" qty=2 customerId=6007 bookingStatus="success"
+http POST http://localhost:8082/bookings ccId=1 ccName="mong" ccDate="20210621" qty=2 customerId=6007 bookingStatus="success"
+http POST http://localhost:8082/bookings ccId=1 ccName="mong" ccDate="20210618" qty=200 customerId=6007 bookingStatus="success"
 http http://localhost:8081/concerts/1 // REQ/RES막아서 호출안함
 http PATCH http://localhost:8082/bookings/1 qty=1 bookingStatus="cancle"
 http http://localhost:8082/bookings/1 
@@ -31,7 +101,7 @@ http http://localhost:8082/bookings/1
 7.컨슈머 메세지 출력확인
 {"eventType":"Registered","timestamp":"20210616232853","ccId":1,"ccName":"mong","ccDate":"20210616","stock":10}
 {"eventType":"Booked","timestamp":"20210616232906","bookingId":1,"ccId":1,"ccName":"mong","qty":2,"customerId":6007,"bookingStatus":"success"}
-{"eventType":"BookingCancelled","timestamp":"20210616232915","bookingId":1,"ccId":1,"ccName":"mong","qty":1,"customerId":6007,"bookingStatus":"cancle"}
+{"eventType":"BookingCancelled","timestamp":"20210616232915","bookingId":1,"ccId":1,"ccName":"mong","qty":1,"customerId":6007,"bookingStatus":"cancel"}
 {"eventType":"StockModified","timestamp":"20210616232915","ccId":1,"ccName":"mong","ccDate":"20210616","stock":9}
 ->PUB/SUB
 
@@ -41,7 +111,312 @@ http http://localhost:8082/bookings/1
 {"eventType":"StockModified","timestamp":"20210617002452","ccId":1,"ccName":"mong","ccDate":"20210616","stock":8}
 {"eventType":"Booked","timestamp":"20210617002452","bookingId":1,"ccId":1,"ccName":"mong","qty":2,"customerId":6007,"bookingStatus":"success"}
 
+
+9.gateway
+pom.yml
+:<artifactId>spring-cloud-starter-gateway</artifactId>
+application.yml
+:  cloud:
+    gateway:
+      routes:
+        - id: product
+          uri: http://localhost:8081
+(중략)
+
+★10. view > CQRS 
+: 하나 이상의 마이크로서비스에서 추출한 데이터로 뷰를 구성
+: 잦고 빠른 마이크로서비스 내에서의 Read 가 발생하는 경우에 사용
+
+11. Saga 패턴 > Circuit Breaker
+: 하나이상의 마이크로서비스를 걸친 트랜잭션이 필요한 경우 & Database per service 패턴을 적용했을때 유효함
+: 마이크로 서비스간 프로세스 실행시간이 상대적으로 길거나 예측하기 힘든 경우
+
+
+-----------------------------------
+
+9. aws configure 셋팅 : AWS (IAM>사용자>access key생성)
+$> aws configure
+$>AWS Access Key ID [None]: 
+$>AWS Secret Access Key [None]: 
+$>Default region name [None]: ap-northeast-2
+$>Default output format [None]: json
+
+10.EKS (Elastic Kubernetes Service) 생성 (15분)
+$> eksctl create cluster --name (mycluster-06007) --version 1.17 --spot --managed --nodegroup-name standard-workers --node-type t3.medium --nodes 3 --nodes-min 1 --nodes-max 3 
+
+11.클러스터 접속위한 Kubernetes 토큰설정
+$> aws eks --region (eu-west-1) update-kubeconfig --name (mycluster-06007)
+$> kubectl get all // 클러스터 정보 조회
+
+12. AWS ECR 에 Image Repository 생성 
+: AWS (ECR > Repositories 선택 > 리포지토리 생성)
+-------------------------------------------------------------------------------------------------------------------------
+13. AWS ECR Login 설정
+$> aws --region ca-central-1 ecr get-login-password // key생성
+$> docker login --username AWS -p (아주긴도커패스워드 [AWS유저아이디-숫자로만된].dkr.eu-west-1.amazonaws.com)
+
+740569282574.dkr.ecr.ca-central-1.amazonaws.com/concert
+
+
+docker login --username AWS -p eyJwYXlsb2FkIjoiKzJFT1RPTUpGKzJxNmpHOWY0a1FHdVBpdWFDc2wvaCt1YnhDK01HcFlJcUc4VU1pblJibEkwazF1Z3VNT3FVTFRLdHpReUNSZTcxM202UmFuWm1jSXJHdU1GZmVYUjc0ZTN4MFAxRXE3dGp4TDlxNkQzOGl1djNGTEhXdW5meFNPQW16eVE2ZmpTSTN6VmRDWkNlUFNIWEFnMWZybDJ3VU9RYzMyVTAwMkdtemU3R0p0N0lyeHhUWk04SzFGYkNkckZCWmFlbytWT0oyN2dNaC9GNXFTM0w4RnhCNU5XVi9mZkVPaTdKK0hDZzNsNzNsekZ4UzhHSytVamlFS3gvcjVZMDBtRW51WEJUQklMb0lOYlE3VUl5TXB5SXNMRlhXUG5nYXB1TThyNEV1RUdDQzFwcHdva1o5UXB1UTBjZmpqcEJWYXZxampKVUJJeTFDTTIxS2cwOEE0bUo0ZHNOTWNqWGs3Y2U4d29RVjBZMkZKeUpRYjMwUWo2cUQ3dER5UE1zY2xWZE5YRENaODV1MTFWUDJsU2R1bzZRQi9uM0ZuS3hhYmlWZW9NVVVyTGV0VXcrZnk0Yy9qeFVaK1BjNW93Nk9YRnN4dWphSXpTajVjM2ZDWExjTEQrYm5lRHR5OFptbE4rTmRVUE9TTmtZNXE4RWsvQVpqRnhoZ0M1MmdxeVFOb0xKcC9hN1laTDVLdGQ5STU1U3U1WDgvMVhXdkJrakc2c0RiOXB4d1lGWWxOYXBycGQxVFprVWduc0V3TUZDQUpTQzJOQk9MTXdIRGlnS2Y0T29mTnpOdHFld3AzcXlHaGp5U2c2NVllc0JuYjJIWjBHYXFNa2dJWndvYUR3Nm1oRWcxeXNFQ3hhOERyRk9BVTNOKzN2SEdlQnp1UlBHUzZLbjJ0eDA1OFYraXZnZS8zZHIwc3U2Zm1Zd25meHFlZmNpVTI3SlhJS2ZaWG5oMjUwakJVcWZvSEY5bjh6bHRyNHBSUmxnUlpqS3ZNZDZic2xKanNrTXVvNGM5bXJPSVFHa3dCRlI3ZWdQaTcyWGNyYm4zdVBjQTZzYThFWnNOTjZUcHAyTHgrQWhJRVM2c0FzT1hsSW91ekVYRktKSFJ4K2Y1OWtob1FBbCtYYSswSVZtUVpKOEpHcTZrNGRRMDVMVmFIUlljbWJIWGVid1JvQU1NZG5kZTkyM1NHVWxHWGN0Zm4wSWt3ekJuVVJING1FYTZTTWZ3REdQSTJYc1B1R1JNQ3g2a2V0ZXY4UHVFM0JBVGVHNFZ5Q1dnamN0dzZQb3l2NUp2QW5MOFBqQWhNK0JEMkNwVmJLcnBzVmorYWNSZDViWitCaTlsdHk4d1pQV01aYzRxVlJOUVNzTTRuT0JvT2hQaUhJTW01ZmtSOW5jSEVsNlpKN2loNW9qU3g5OUlNL3RPR2lnL21MMUxQVlMyejFackZoNFNMcFl1Um9aWnk1c2I4elVTS0cvbi9nST0iLCJkYXRha2V5IjoiQVFFQkFIaGJNMFhQVWRlNHJrTTNJbzV0YzA0MG1KT2xITzJjc2JRb3Fta0pVellDU1FBQUFINHdmQVlKS29aSWh2Y05BUWNHb0c4d2JRSUJBREJvQmdrcWhraUc5dzBCQndFd0hnWUpZSVpJQVdVREJBRXVNQkVFRERMdnN0d29SQmNZdEhmR2d3SUJFSUE3cEVTU2JuVmt4VVBOa1krcHY3UTFwOE9ndG56UXVkMWZER3RKQy82Sk1IeTlicC9nMVRGS2lJSnJsT1FLTWZHRVVDb3pGMHc0RzFhMFlRYz0iLCJ2ZXJzaW9uIjoiMiIsInR5cGUiOiJEQVRBX0tFWSIsImV4cGlyYXRpb24iOjE2MjQzNTk5NTh9 740569282574.dkr.ecr.ca-central-1.amazonaws.com/booking
+
+
+14. 소스패키징 > docker build/push > 클러스터 배포 > 서비스 확인
+$> mvn package -B
+$> docker build -t 740569282574.dkr.ecr.ca-central-1.amazonaws.com/concert:v1 .  //계정/이미지명
+$> docker push 740569282574.dkr.ecr.ca-central-1.amazonaws.com/concert:v1
+->deployment.yml 파일 수정
+          image: 052937454741.dkr.ecr.eu-west-1.amazonaws.com/order_06007:v1
+$> kubectl apply -f kubernetes/deployment.yml  //설정파일 배포
+$> kubectl apply -f kubernetes/service.yaml   
+$> kubectl get deploy -o wide 
+$> kubectl get svc
+$> kubectl get po 
+$> http [gateway IP]:8080/(orders) //서비스 호출
+kubectl logs -f booking-6bc6f476b6-zdh2b  // 로그보기
+kubectl logs -f concert-57b5867b77-xj6gd
+
+
+kubectl delete deploy gateway
+kubectl delete svc gateway
+kubectl delete po gateway-7fc97ff7ff-mtm8n
+
+--gateway
+mvn package -B
+docker build -t 740569282574.dkr.ecr.ca-central-1.amazonaws.com/gateway:v2 .  //계정/이미지명
+docker push 740569282574.dkr.ecr.ca-central-1.amazonaws.com/gateway:v2
+kubectl create deploy gateway --image=740569282574.dkr.ecr.ca-central-1.amazonaws.com/gateway:v2
+kubectl expose deployment gateway --type=LoadBalancer --port=8080
+
+kubectl logs -f concert-bbd45d488-7t8t5 
+
+--concert
+mvn package -B
+docker build -t 740569282574.dkr.ecr.ca-central-1.amazonaws.com/concert:v3 .
+docker push 740569282574.dkr.ecr.ca-central-1.amazonaws.com/concert:v3
+kubectl apply -f kubernetes/deployment.yml
+kubectl apply -f kubernetes/service.yaml 
+
+http POST http://ad19962ab81274a31adf7459dc954a12-620202062.ca-central-1.elb.amazonaws.com:8080/concerts ccName="mong" ccDate="20210621" stock=70
+http POST http://localhost:8081/concerts ccName="mong" ccDate="20210621" stock=1000000
+http GET http://localhost:8081/concerts/1
+
+--booking
+mvn package -B
+docker build -t 740569282574.dkr.ecr.ca-central-1.amazonaws.com/booking:v5 .
+docker push 740569282574.dkr.ecr.ca-central-1.amazonaws.com/booking:v5
+kubectl apply -f kubernetes/deployment.yml
+kubectl apply -f kubernetes/service.yaml 
+
+
+http POST http://ad19962ab81274a31adf7459dc954a12-620202062.ca-central-1.elb.amazonaws.com:8080/bookings ccId=1 ccName="mong" ccDate="20210621" qty=2 customerId=6007 bookingStatus="success"
+http PATCH http://ad19962ab81274a31adf7459dc954a12-620202062.ca-central-1.elb.amazonaws.com:8080/bookings/3 qty=1 bookingStatus="cancle"
+
+http POST http://localhost:8082/bookings ccId=1 ccName="mong" ccDate="20210621" qty=2 customerId=6007 bookingStatus="success"
+kubectl exec -it siege -- /bin/bash
+siege -c20 -t40S -v --content-type "application/json" 'http://localhost:8082/bookings POST {"ccId":1, "ccName":"mong", "ccDate":"20210621", "qty":2 ,"customerId":6007 ,"bookingStatus":"success"}'
+
+mvn spring-boot:run
+
+feign:
+  hystrix:
+    enabled: true
+
+hystrix:
+  command:
+    default:
+      execution.isolation.thread.timeoutInMilliseconds: 610   
+-------------------------------------------------------------------------------------------------------------------------
+★CI/CD
+CodeBuild (p37) 
+1. ecr 레파지토리 생성
+2. buildspec.yml 수정
+:IMAGE_REPO_NAME: "user01-products" //ecr 레파지토리명 변경
+3.codebuild 생성
+:환경변수 셋팅
+:역할>권한tab>인라인정책추가(CodeBuild 와 ECR연결)
+4.eks 클러스터 api 복사
+5.eks 토큰생성 및 codebuild와연결
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eks-admin
+  namespace: kube-system
+EOF
+(결과)serviceaccount/eks-admin created
+
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: eks-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: eks-admin
+  namespace: kube-system
+EOF
+
+
+cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: eks-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: eks-admin
+  namespace: kube-system
+EOF
+
+토큰정보가져오기
+kubectl -n kube-system describe secret eks-admin
+(토큰정보)
+eyJhbGciOiJSUzI1NiIsImtpZCI6ImtTa0JQSDlPMDhJOHVWVGhUc215VkJ0Rks2aGF1SFBUTnBqaHJySnd0azgifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJla3MtYWRtaW4tdG9rZW4tN3BsaGciLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZWtzLWFkbWluIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiNzczNmEwNDEtZmU0YS00MDRjLTg3NjAtNTJjYzQ4NDBhYzIzIiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Omt1YmUtc3lzdGVtOmVrcy1hZG1pbiJ9.dpn2zH0U_tz83tWDAsT-Jbc_Qr2inCuREbaPgJI8XI2eB4XFOtdYPMvVz82cz2HogcaLopnR6UU47zJ4oPYT3Fy4Cajs75dQlTkfrZDFp9zqeRsTb4rRzpLXdl4zZ9NRJFV7nl5j7Vs3FzFeGUmyrdx_BgYkgp1Lw90NhG8522lmcalgBX-YsBJnBxMpP1N7nies1ROFaAuf7BloM-iLSS_Nk77GQUA9ohLhuDV6zdTOx51gBX_bVDP2dX-lMxxeoGQ2b00An_raBWHSZLznzTXkdxkaYAVgPZ1ARJRh_tFkClQWyptnnafOAMCwNTN7OcJ1DBObGKUh2llqeehq2A
+6.환경변수 셋팅 추가 (KUBE_URL, KUBE_TOKEN)
+-------------------------------------------------------------------------------------------------------------------------
+/*
+[참고]
+kubectl get deploy order -o yaml // 배포된 yaml 확인
+kubectl get po -w
+kubectl logs -f (Pod 객체명) // 로그보기
+kubectl logs -f concert-bbd45d488-7t8t5 
+kubectl exec -it (Pod 객체명) -- /bin/sh //pod 접속
+kubectl create ns kafka
+kubectl get ns
+*/
+
+[이슈해결]
+ImagePullBackOff ->docker push시 발생, 이미지 제대로 도커에 안올라가서..
+Unable to listen on port 8080: Listeners failed to create with the following errors: -> 도커에서 8080사용해서 stop하고 재수행
+kubectl delete deploy --all ->기존 객체존재하여 오류 발생시 삭제후 재수행
+kubectl delete svc --all     
+kubectl delete po --all
+
+
+16. Circuit 
+1.피호출서비스(concert)에 부하설정
+- Consert.java
+    try {
+        Thread.currentThread().sleep((long) (400 + Math.random() * 220));
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+2.호출서비스(booking) 
+Spring FeignClient + Hystrix 옵션을 사용하여 구현
+- application.yaml  
+feign:
+  hystrix:
+    enabled: true
+
+hystrix:
+  command:
+    # 전역설정
+    default:
+      execution.isolation.thread.timeoutInMilliseconds: 610
+3.부하주문
+siege -c2 -t10S  -v --content-type "application/json" 'http://localhost:8088/orders POST {"productId":2, "quantity":1}'
+
+siege -c1 -t60S -v http://order:8080/orders --delay=1S
+4.consert서비스 중지상태로 주문 ->500오류
+5.Booking에 consertService.java에 fallback옵션적용
+@FeignClient(name ="delivery", url="${api.url.delivery}", fallback = DeliveryServiceImpl.class)
+
+[결론]
+Hystrix적용전 availability 100%
+Hystrix적용후 availability 100% 아님
+->자원은 보호되나 고객 사용성에 있어 좋지 않기 때문에 Retry 설정과 동적 Scale out (replica의 자동적 추가,HPA) 을 
+통하여 시스템을 확장 해주는 후속처리가 필요.
+
+http://www.msaez.io/#/courses/cna-full/running@container-orchestration-aws-3/circuitbreaker/06007sk@gmail.com
+https://youtu.be/OZNm1_42M68
+
+
+17. Auto scale-out : HPA
+1.kubectl get svc 하였을때 order 서비스 존재확인.
+2.kubectl get pod 하였을때 order/siege의 STATUS 가 Running 
+3.metrics 설치필요 
+- 설치
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.3.7/components.yaml
+kubectl get deployment metrics-server -n kube-system
+- 설치확인 : kubectl top pods 출력시 cpu/메모리 조회
+4.deployment.yaml 수정
+        ports:
+          - containerPort: 8080
+       //추가시작
+        resources:   
+          requests:
+            cpu: "200m"
+       //추가종료
+        readinessProbe:
+5.resource적용 및 확인
+kubectl apply -f deployment.yml
+kubectl get deploy order -o yaml
+kubectl get po
+6.오토스케일링 
+kubectl autoscale deployment order --cpu-percent=50 --min=1 --max=3 ->모든 pod의 평균 사용율이 100m넘으면 hpa발생
+kubectl get hpa //오토스케일링 설정 확인
+7.별도 터미널 부하 발생
+kubectl exec -it siege -- /bin/bash
+siege -c20 -t40S -v http://order:8080/orders
+exit
+8.모니터링
+kubectl get po -w //pod생성 확인
+kubectl top pods //pod의 cpu사용률 확인 
+kubectl get hpa //CPU 값이 늘어난 것을 확인 
+http://www.msaez.io/#/courses/cna-full/running@container-orchestration-aws-3/ops-autoscale/06007sk@gmail.com
+
+15.무정지 배포
+(선행)
+$> kubectl get svc // order ClusterIP 조회확인
+$> kubectl get po // order pod Running 상태 확인
+siege pod 생성-> order deploy (readinessProbe 옵션  , order service 존재(seige 호출위해))
+신규버전 배포 -> siege 수행 ->  배포정지시간 확인
+
+1. siege pod 생성 및 조회
+$>kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: siege
+spec:
+  containers:
+  - name: siege
+    image: apexacme/siege-nginx
+EOF
+$> kubectl get po // siege pod 조회
+2. ( 속성확인->mvn ->build/push->)
+$> mvn spring-boot:run
+$> docker build -t (052937454741.dkr.ecr.eu-west-1.amazonaws.com/order_06007:v1) .  //계정/이미지명
+$> docker push (052937454741.dkr.ecr.eu-west-1.amazonaws.com/order_06007:v1)
+siege 접속하여 부하 준비
+$> kubectl exec -it siege -- /bin/bash
+$> siege -c1 -t60S -v http://order:8080/orders --delay=1S //60초동안 , 1초 delay 주고 1명의 user로 부하요청
+yaml 파일 배포
+$> kubectl apply -f kubernetes/deployment.yml
+$> kubectl apply -f kubernetes/service.yaml
+$> kubectl get deploy order -o yaml //readinessProbe 옵션 확인
+신규버전 배포
+kubectl set image deploy order order=052937454741.dkr.ecr.eu-west-1.amazonaws.com/order_06007:v1
+배포무정지 확인
+Availability:                  100 %
+
+
+
+셀프힐링 (livenessProbe 설정)
+http://www.msaez.io/#/courses/cna-full/running@container-orchestration-aws-3/ops-liveness/06007sk@gmail.com
+->callMemleak
+
 ===========================================
+[참고]
 ★PUB
 1.ConcertApplication.java
 -> @EnableBinding(KafkaProcessor.class)
@@ -79,3 +454,13 @@ ConcertController.java
                 method = RequestMethod.GET,
                 produces = "application/json;charset=UTF-8")
 
+
+
+    @PostPersist
+    public void onPostPersist(){
+        Registered registered = new Registered();
+        BeanUtils.copyProperties(this, registered);
+        registered.publishAfterCommit();
+
+
+    }
